@@ -1,6 +1,8 @@
 from enum import Enum
-import move
+
 import math
+
+from move import MoveDefinition, PokemonMove
 
 
 class Stat(Enum):    
@@ -45,24 +47,24 @@ class Nature(Enum):
 
     def get_increased_stat(self):
 
-        if(self == Nature.lonely or self == Nature.brave or
-           self == Nature.adamant or self == Nature.naughty):
+        if self == Nature.lonely or self == Nature.brave or
+           self == Nature.adamant or self == Nature.naughty:
             return Stat.attack
         
-        elif(self == Nature.bold or self == Nature.relaxed or
-             self == Nature.impish or self == Nature.lax):
+        elif self == Nature.bold or self == Nature.relaxed or
+             self == Nature.impish or self == Nature.lax:
             return Stat.defense
         
-        elif(self == Nature.timid or self == Nature.hasty or
-             self == Nature.jolly or self == Nature.naive):
+        elif self == Nature.timid or self == Nature.hasty or
+             self == Nature.jolly or self == Nature.naive:
             return Stat.speed
         
-        elif(self == Nature.modest or self == Nature.mild or
-             self == Nature.quiet or self == Nature.rash):
+        elif self == Nature.modest or self == Nature.mild or
+             self == Nature.quiet or self == Nature.rash:
             return Stat.special_attack
 
-        elif(self == Nature.calm or self == Nature.gentle or
-             self == Nature.sassy or self == Nature.careful):
+        elif self == Nature.calm or self == Nature.gentle or
+             self == Nature.sassy or self == Nature.careful:
             return Stat.special_defense
 
         #neutral natures
@@ -71,24 +73,24 @@ class Nature(Enum):
 
     def get_decreased_stat(self):
 
-        if(self == Nature.bold or self == Nature.timid
-           or self == Nature.modest or self == Nature.calm):
+        if self == Nature.bold or self == Nature.timid or
+           self == Nature.modest or self == Nature.calm:
             return Stat.attack
         
-        elif(self == Nature.lonely or self == Nature.hasty
-             or self == Nature.mild or self == Nature.gentle):
+        elif self == Nature.lonely or self == Nature.hasty or
+             self == Nature.mild or self == Nature.gentle:
             return Stat.defense
         
-        elif(self == Nature.brave or self == Nature.relaxed
-             or self == Nature.quiet or self == Nature.sassy):
+        elif self == Nature.brave or self == Nature.relaxed or
+             self == Nature.quiet or self == Nature.sassy:
             return Stat.speed
         
-        elif(self == Nature.adamant or self == Nature.impish
-             or self == Nature.jolly or self == Nature.careful):
+        elif self == Nature.adamant or self == Nature.impish
+             or self == Nature.jolly or self == Nature.careful:
             return Stat.special_attack
 
-        elif(self == Nature.naughty or self == Nature.lax
-             or self == Nature.naive or self == Nature.rash):
+        elif self == Nature.naughty or self == Nature.lax
+             or self == Nature.naive or self == Nature.rash:
             return Stat.special_defense
 
         #neutral natures
@@ -115,7 +117,7 @@ class PCMon(object):
 
 
     def __init__(self, species, level, nature, ivs, moves,
-                 evs=[0, 0, 0, 0, 0, 0]):
+                 evs=[0, 0, 0, 0, 0, 0], nickname = None):
 
         self.species = species
         self.level = level
@@ -123,82 +125,137 @@ class PCMon(object):
         self.ivs = ivs
         self.evs = evs
         self.moves = moves
+        self.nickname = nickname
 
+    def get_name(self):
+
+        if(self.nickname == None):
+            return self.species.name
+        else:
+            return nickname
 
 class ActiveMon(object):
 
 
     def __init__(self, base_mon):
 
-        self.base_mon = base_mon
+        self._base_mon = base_mon
+
+        self._moves = [PokemonMove(move) for move in base_mon.moves]
+
+        self.major_status = None
+        self.minor_status = []
+        self.technical_status = []
+        self,reset_stat_modifiers()
+        
         self.update_base_stats()
+        self.current_hp = self.base_stats[Stat.HP.value]
         
     def update_base_stats(self):
 
         #Hairy math ahead
-        base_HP = math.floor((2*self.base_mon.species.base_stats[Stat.HP.value] +
-                              (self.base_mon.evs[Stat.HP.value]/4) +
-                              self.base_mon.ivs[Stat.HP.value]) *
-                              self.base_mon.level/100)
-        base_HP += 10 + self.base_mon.level
+        base_HP = math.floor((2*self._base_mon.species.base_stats[Stat.HP.value] +
+                              (self._base_mon.evs[Stat.HP.value]/4) +
+                              self._base_mon.ivs[Stat.HP.value]) *
+                              self._base_mon.level/100)
+        base_HP += 10 + self._base_mon.level
 
         stat_list = [base_HP];
 
         for stat_index in range(1, 6):
-            stat = math.floor((2*self.base_mon.species.base_stats[stat_index] +
-                              (self.base_mon.evs[stat_index]/4) +
-                              self.base_mon.ivs[stat_index]) *
-                              self.base_mon.level/100)
+            stat = math.floor((2*self._base_mon.species.base_stats[stat_index] +
+                              (self._base_mon.evs[stat_index]/4) +
+                              self._base_mon.ivs[stat_index]) *
+                              self._base_mon.level/100)
             stat += 5
-            
-            if(stat_index == self.base_mon.nature.get_increased_stat().value):
+
+            increased_stat = self._base_mon.nature.get_increased_stat()
+            decreased_stat = self._base_mon.nature.get_decreased_stat().value
+            if increased_stat != None and stat_index == increased_stat.value:
                 stat = math.floor(stat * 1.1)
-            elif(stat_index == self.base_mon.nature.get_decreased_stat().value):
+            elif decreased_stat != None and stat_index == decreased_stat.value:
                 stat = math.floor(stat*0.9)
 
             stat_list.append(stat)
             
-        self.base_stats = tuple(stat_list)                  
+        self.base_stats = tuple(stat_list)
+
+    def reset_stat_modifiers(self):
+        
+        #Crit Modifier, Atk, Def, Sp. A, Sp. D, Speed, Accuracy, Evasion
+        self.stat_modifiers = [1, 0, 0, 0, 0, 0, 0, 0]
+
+    def get_modified_stat(self, stat):
+
+        stat = self.base_stats[stat.value]
+        stat_modifier = self.stat_modifiers[stat.value]
+
+        if stat_modifier > 0:
+            stat *= 1 + (0,5 * stat_modifier)
+        elif stat_modifier < 0:
+            stat /= 1 + (-0.5 * stat_modifier)
+
+        stat = math.floor(stat)
+        return stat
+        
+
+    def get_accuracy_modifier(self):
+
+        stage = self.stat_modifiers[6]
+        if stage > 0:
+            return 1 + (stage / 3)
+        elif stage < 0:
+            return 1 / (1 + (stage / -3))
+        else
+            return 1
+
+    def get_evasion_modifier(self):
+
+        stage = self.stat_modifiers[7]
+        if stage > 0:
+            return 1 / (1 + (stage / 3))
+        elif stage < 0:
+            return 1 + (stage / -3)
+        else
+            return 1
+
+    #gives crit rate out of 10,000
+    def get_crit_rate(self):
+
+        stage = self.stat_modifiers[0]
+        if stage == 1:
+            return 625
+        elif stage == 2:
+            return 1250
+        elif stage == 3:
+            return 5000
+        else:
+            return 10000
+        
+    def get_move(self, move_index):
+
+        if move_index < len(self._moves):
+            return self._moves[move_index]
+        else:
+           return None
+
+    def get_name(self):
+
+        return self.base_mon.get_name()
+
+    def get_level(self):
+
+        return self.base_mon.level
 
 
+#Minimally represents an opponent mon for the UI
+class BattleMon(object):
 
+    def __init__(self, active_mon):
 
+        self.name = active_mon.base_mon.get_name()
+        self.hp_percent = active_mon.current_hp / active_mon.base_stats[Stat.HP.value]
+        self.status = active_mon.status
+        self.level = active_mon.level
+        
 
-
-def lanturn_test():
-
-    lanturn_species = Species("Lanturn", 177, move.Type.water, move.Type.electric,
-                              (125, 58, 58, 76, 76, 67))
-
-    surf = move.MoveDefinition("Surf", 15, 90, 100, move.Type.water,
-                               move.MoveCategory.special, targets = move.MoveTargets.nearby)
-
-    thunderbolt = move.MoveDefinition("Thunderbolt", 15, 90, 100, move.Type.electric,
-                                      move.MoveCategory.special)
-
-    lanturn_pcmon = PCMon(lanturn_species, 50, Nature.modest,
-                          (31, 31, 31, 31, 31, 31),
-                          [surf, thunderbolt, None, None],
-                          evs=[255, 0, 4, 255, 0, 0])
-    
-    lanturn_activemon = ActiveMon(lanturn_pcmon)
-
-    tropius_species = Species("Tropius", 357, move.Type.grass, move.Type.flying,
-                              (99, 68, 83, 72, 87, 51))
-    
-    gust = move.MoveDefinition("Gust", 35, 40, 100, move.Type.flying, move.MoveCategory.special)
-
-    razor_leaf = move.MoveDefinition("Razor Leaf", 15, 90, 100, move.Type.water,
-                                    move.MoveCategory.special,
-                                    targets = move.MoveTargets.nearby, crit_stage = 2)
-
-    tropius_pcmon = PCMon(tropius_species, 50, Nature.modest,
-                          (31, 31, 31, 31, 31, 31),
-                          [razor_leaf, gust, None, None])
-
-    tropius_activemon = ActiveMon(tropius_pcmon)
-
-    print("Tropius: ")
-    print(tropius_activemon.base_stats)
-    print("Lanturn: ")
-    print(lanturn_activemon.base_stats)
