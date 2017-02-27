@@ -102,22 +102,29 @@ class MoveTargets(Enum):
 class MoveDefinition(object):
 
 
-    def __init__(self, name, pp, move_type, move_category, move_effect = None, bp = None,
-                 accuracy = None, targets = MoveTargets.single, priority = 0,
-                 crit_stage = 1, contact = False, sound = False, punch = False,
+    def __init__(self, name, pp, move_type, move_category, animation, move_effect = None,
+                 bp = None, accuracy = None, targets = MoveTargets.single, priority = 0,
+                 crit_modifier = 0, contact = False, sound = False, punch = False,
                  snatchable = False, defrosts = False, reflected = False,
                  blockable = True, copyable = True):
 
         self.name = name
         self.pp = pp
+        self.move_type = move_type
+        self.move_category = move_category
+        self.animation = animation
+
+        if move_effect == None:
+            self.move_effect = MoveEffect()
+        else:
+            self.move_effect = move_effect
+        
         self.bp = bp
         self.accuracy = accuracy
-        self.move_type = move_type
         self.targets = targets
 
-        self.move_effect = move_effect
-
         self.priority = priority
+        self.crit_modifier = crit_modifier
         self.contact = contact
         self.sound = sound
         self.punch = punch

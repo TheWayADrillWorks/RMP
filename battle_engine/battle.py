@@ -58,11 +58,7 @@ class Battle(threading.Thread):
                     sent_out_mon = team[team_send_out_indicies[team_index]]
                     self._slots[slot] = sent_out_mon
 
-                    status_message = StatusMessage(slot = slot,
-                                                   wild = self._team_is_wild[team_index],
-                                                   switched_to = BattleMon(sent_out_mon))
-               
-                    self.message_buffer.push(status_message)
+                    self.message_switch_in(slot, wild = self._team_is_wild[team_index])
 
         self.start()
 
@@ -129,46 +125,42 @@ class Battle(threading.Thread):
         if instruction.instruction_type == InstructionType.move:
                
             move = instruction.move
-            user = self._slots(instruction.user_slot)
+            user_slot = instruction.user_slot
+            user = self._slots[user_slot]
 
-            if user == None:
+            if self._slots[user_slot] == None:
                 return
 
             ally_slots = self._battle_mode.ally_slots(instruction.user_slot)
             enemy_slots = self._battle_mode.enemy_slots(instruction.user_slot)
             far_slots = self._battle_mode,far_slots(instruction.user_slot)
             
-            targets = move.get_targets(instruction.target_slot, instruction.user_slot,
+            target_slots = move.get_targets(instruction.target_slot, instruction.user_slot,
                                        ally_slots, enemy_slots)
 
             if targets == None:
-                self._used_move(user, move.move_definition)
-                self.move_failed(user, move.move_definition)
+                self.message_used_move(user_slot, move.move_definition)
+                self.message_move_failed(user_slot, move.move_definition)
                 return
             elif move.pp == 0:
                 #TODO: Implement Struggle
-                message = Message("%s tried to use %s but it's out of PP!"
-                                  %(user.get_name(), move.name))
-                self.message_buffer.push(message)
+                self.message_out_of_pp(user_slot, move.move_definition)
                 return
             
             #TODO: Hook for Pressure
             move.pp -= 1
             
             target_mons = [self._slots[slot] for slot in targets]
-            self._do_move(move.move_definition, move.effect, user, target_mons)
+            self._do_move(move.move_definition, move.effect, user_slot, target_mons)
+            
 
-    def _used_move(self, user, move):
-        self.message_buffer.push(Message("%s used %s!" %(user.get_name(),
-                                                         move.name)))
+    def _do_move(self, move, effect, user_slot, target_mon_slots):
 
-    def move_failed(self, user, move):
-        self.message_buffer.push(Message("But it failed!"))
-
-    def _do_move(self, move, effect, user, target_mons):
-
+        user = self._slots[user]
+        target_mons = [self._slots[slot] for slot in target_mon_slots]
+        
         effect_params = MoveEffectParams(user, self._turn_count, target_mons)
-        self._used_move()
+
         hit = [True for x in target_mons]
 
         #Roll for hit
@@ -184,10 +176,71 @@ class Battle(threading.Thread):
                 hit[index] = final_accuracy > random.random * 100
 
         for(target_mon_index in range(len(target_mons))):
-            effect_params.target = target_mons[index]
+            effect_params.target = target_mons[target_mon_index]
             if(hit[target_mon_index])
-                #Do damage calcs
+
+                #Hit
+                if(target_mon_index == 0):
+                    self.message_used_move(user, move, animate = True,
+                                           target_slot = target_mon_slots[target_mon_index])
+                #TODO: Do damage calcs
+                #
+                
             else
                 #Missed
+                if(target_mon_index == 0):
+                    self.message_used_move(user, move, animate = len(target_mons) > 1,
+                                           target_slot = target_mon_slots[target_mon_index])
+                if(len(target_mons > 1):
+                    self.message_avoided(target_mons[target_mon_index])
+                else:
+                    self.message_missed(user)
                 
-                
+
+    #---Message Convinience Methods---
+    def message_out_of_pp(self, user_slot, move = None):
+        user = self._slots[user]
+        if move == None:
+            self.message(text = (user.get_name(), " is out of PP!"),
+                         localize_flags = (False,))
+        else
+            self.message(text = (user.get_name(), " tried to use ", move.name,
+                                 " but is out of PP!"), localize_flags = (False,))
+        
+    def message_avoided(self, target):
+        self.message(text = (target.get_name(), " dodged the attack!"),
+                     localize_flags = (False,))
+
+    def message_missed(self, user):
+        self.message(text = (user.get_name(), "'s attack missed!"),
+                     localize_flags = (False,))
+
+    
+    def message_switch_in(self, slot, wild = False):
+        status_message = StatusMessage(slot = slot, wild = wild,
+                                       switched_to = BattleMon(self._slots[slot]))
+        self.message_buffer.push(status_message)
+            
+    def message_used_move(self, user_slot, move, target_slot = None, animate = False):
+        user = self._slots[user]
+        if(animate):
+            self.message(text = (user.get_name(), " used ", move.name, "!"),
+                         localize_flags = (False,), user_slot = user_slot,
+                         target_slot = target_slot, animation = move.animation)
+        else:
+            self.message(text = (user.get_name(), " used ", move.name, "!"),
+                         localize_flags = (False,), user_slot = user_slot,
+                         target_slot = target_slot)
+
+    def message_move_failed(self):
+        self.message(text = "But it failed!")
+
+    def message(self, text = None, localize_flags = None, animation = None,
+                user_slot = None, target_slot = None):
+                              
+        message_text = None
+        if text != None:
+            message_text = LocalizableText(text, localize_flags)
+
+        self.message_buffer.push(Message(text = message_text, animation = animation,
+                                         user = user_slot, target = target_slot))

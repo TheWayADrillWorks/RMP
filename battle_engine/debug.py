@@ -28,7 +28,7 @@ def lanturn_test():
 
     razor_leaf = move.MoveDefinition("Razor Leaf", 25,  Type.grass, bp = 55, accuracy = 95
                                     MoveCategory.physical,
-                                    targets = MoveTargets.nearby_enemies, crit_stage = 2)
+                                    targets = MoveTargets.nearby_enemies, crit_modifier = 1)
 
     tropius_pcmon = PCMon(tropius_species, 50, Nature.modest,
                           (31, 31, 31, 31, 31, 31),

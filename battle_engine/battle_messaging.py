@@ -5,9 +5,38 @@ import random
 
 from battle_mode import BattleMode
 
+
 #---Messages from the engine to the scene---
-#These will have to change for localization support but we're going the
-# quick and dirty route first
+
+
+class LocalizableText(object):
+
+    #Note that localize_flags is not only optional but need only
+    #indicate localization up to the last non-localized string in text
+    def __init(self, text, localize_flags = None):
+        self._text = text
+        self._localize_flags = localize_flags
+
+    #TODO:pass in translation module
+    def get_text(self):
+        if isinstance(self._text, str):
+            if self._localize_flags != None and !self._localize_flags:
+                return self._text
+            else:
+                return self._text
+        else:
+            final_string = ""
+            for index in range(len(text)):
+                if self._localize_flags != None and index < len(self._localize_flags) and
+                   !self._localize_flags[index]:
+                    final_string += self._text[index]
+                else:
+                    #TODO:Translate dis
+                    final_string += self._text[index]
+                    
+            return final_string
+
+
 class Message(object):
 
 
