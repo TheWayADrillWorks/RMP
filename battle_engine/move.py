@@ -184,9 +184,9 @@ class MoveEffect(object):
     def __init__(self):
         return
 
-    #Will need to override
+    #Will need to override if there is any instance data
     def clone(self):
-        return MoveEffect()
+        return self
 
     def get_pre_execution_flags(self):
         return None

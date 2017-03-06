@@ -92,13 +92,13 @@ class Battle(threading.Thread):
         while not self.is_side_empty():
 
             self._request_general_instructions()
-            self._wait_for_general_instructions()
+            self.instruction_queue.wait_for_general_instructions()
 
-            instruction_queue = self.instruction_queue.get_ordered_instructions
+            instruction_queue = self.instruction_queue.get_ordered_instructions()
             
             #TODO: Get pre-execution flags
 
-            instruction_valid = [True for x in range(len(instruction_queue))]
+            self._instruction_valid = [True for x in range(len(instruction_queue))]
             while len(instruction_queue) > 0:
                instruction = instruction_queue.pop(0)
                valid = instruction_valid.pop(0)
@@ -118,7 +118,6 @@ class Battle(threading.Thread):
             if self._slots[slot] != None and not self._battle_mode.slot_benched(slot):
                 #TODO:Add in restrictions
                 self.message_buffer.push(RequestMessage(slot))         
-
 
     def _do_instruction(self, instruction):
 
@@ -194,7 +193,7 @@ class Battle(threading.Thread):
                     self.message_used_move(user, move, animate = True,
                                            target_slot = target_slot)
                 
-                self._handle_move_hit(move, effect, user, target, effect_params)                        
+                self._handle_move_hit(move, effect, user, target, target_slot, effect_params)                        
                 
             else:
                 #Missed
@@ -206,8 +205,8 @@ class Battle(threading.Thread):
                 else:
                     self.message_missed(user)
 
-    def _handle_move_hit(self, move, effect, user, target, effect_params, hits_multiple,
-                         last_hit = True):
+    def _handle_move_hit(self, move, effect, user, target, target_slot,
+                         effect_params, hits_multiple, last_hit = True):
 
         power = effect.get_custom_power(move.bp)
 
@@ -234,10 +233,14 @@ class Battle(threading.Thread):
                 else:
                     defense = target.get_modified_stat(defense_stat)
 
-                effectiveness = self.get_effectiveness(move, effect, target)
+                effectiveness = self._get_effectiveness(move, effect, target)
 
                 damage = ((2 * user.get_level() / 5) + 2) * attack * power / defense
                 damage = ((damage / 50) + 2) * random.randint(0, 100)
+                if crit:
+                    #TODO:Hook for Sniper
+                    damage *= 1.5
+                
                 pre_type_damage = damage
                 damage *= self.get_stab(user, move) * effectiveness
 
@@ -245,9 +248,11 @@ class Battle(threading.Thread):
 
                 new_damage = effect.get_custom_damage(effect_params, damage)
 
+                #Actually... maybe move this into ActiveMon?
                 target.current_hp -= new_damage
                 if target.current_hp < 0:
                     #TODO: Hook for Focus Sash/Band/Sturdy
+                    #and user_took_damage
                     target.current_hp = 0
                 
                 if crit and new_damage == damage:
@@ -256,19 +261,32 @@ class Battle(threading.Thread):
                 if new_damage > 0:
                     self.message_hp_change(target)
 
-                if pre_type_damage > 0:
+                if pre_type_damage > 0 and new_damage == damage::
                     if hits_mulitple:
-                        self.message_effectiveness(effectiveness, target)
+                        self.message_effectiveness(effectiveness, target_slot)
                     else:
                         self.message_effectiveness(effectiveness)
 
                 if target.current_hp == 0:
-                    self._faint(target)
+                    self._faint(target_slot)
 
         if target.current_hp > 0:
             effect.move_connected(effect_params)
 
-    def _faint(self, target):
+    def _get_effectiveness(move, effect, target):
+        
+        move_type = move.move_type
+        effectiveness = 1
+
+        target_types = target.get_types()
+
+        for mon_type in target_types:
+            partial_eff = mon_type.get_effectiveness(move_type)
+            effectiveness *= effect.get_custom_effectiveness(partial_eff)
+
+        return effectiveness
+
+    def _faint(self, target_slot):
         #TODO
         return
         
@@ -277,8 +295,14 @@ class Battle(threading.Thread):
     def message_crit(self):
         self.message(text = "Critical hit!")
         
-    def message_hp_change(self, target):
-        #TODO
+    def message_hp_change(self, target_slot):
+        StatusMessage message = StatusMessage(slot = target_slot,
+                                              hp_value = target.current_hp,
+                                              hp_percent = target.get_hp_percent)
+        return
+
+    def message_battle_over(self, target_slot):
+        StatusMessage message = StatusMessage(battle_over = True)
         return
 
     def message_effectiveness(self, effectiveness, target = None):

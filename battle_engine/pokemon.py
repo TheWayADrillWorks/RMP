@@ -242,6 +242,20 @@ class ActiveMon(object):
 
         return self.base_mon.level
 
+    def get_hp_percent(self):
+
+        return 100 * self.current_hp / self.base_stats[Stat.HP.value]
+
+    def get_types(self):
+
+        #TODO: Type changing effects
+        type_one = self._base_mon.species.type_one
+        type_two = self._base_mon.species.type_two
+
+        if type_two == None:
+            return (type_one,)
+        else
+            return (type_one, type_two)
 
 #Minimally represents an opponent mon for the UI
 class BattleMon(object):
