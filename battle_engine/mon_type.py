@@ -42,5 +42,5 @@ class Type(Enum):
         (0.5, 2,   1,   1,   0.5, 0.5, 2,   0,   2,   0.5, 0.5, 0.5, 0.5, 1,   0.5, 1,   0.5, 0.5),
         (1,   1,   1,   1,   1,   0.5, 2,   1,   1,   1,   0.5, 1,   1,   1,   0,   0.5, 2,   1))
 
-    def get_effectiveness(self, attacking_type)
+    def get_effectiveness(self, attacking_type):
         return _effectiveness_tuple[self.value][attacking_type.value]

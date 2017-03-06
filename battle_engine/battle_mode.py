@@ -28,7 +28,7 @@ class BattleMode(Enum):
 
         if self == BattleMode.multi:
             return 4
-        else
+        else:
             return 2
 
     def num_slots_per_team(self):
@@ -79,7 +79,7 @@ class BattleMode(Enum):
 
         if self == BattleMode.rotation:
             return slot // 2 != 1
-        else
+        else:
             return False
 
     def ally_slots(self, user_slot):
@@ -87,8 +87,8 @@ class BattleMode(Enum):
         side = self.slot_side(user_slot)
         ally_slots = []
                                
-        for slot in range(self.total_slots())
-            if self.slot_side(slot) == side
+        for slot in range(self.total_slots()):
+            if self.slot_side(slot) == side:
                 ally_slots.add(slot)
 
         return ally_slots
@@ -98,8 +98,8 @@ class BattleMode(Enum):
         side = self.slot_side(user_slot)
         enemy_slots = []
                                
-        for slot in range(self.total_slots())
-            if self.slot_side(slot) != side
+        for slot in range(self.total_slots()):
+            if self.slot_side(slot) != side:
                 enemy_slots.add(slot)
 
         return enemy_slots

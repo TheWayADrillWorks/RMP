@@ -68,16 +68,16 @@ class Battle(threading.Thread):
                
             has_remaining = False
             team_index = 0
-            while team_index < self._teams and !has_remaining:
+            while team_index < self._teams and not has_remaining:
                 if self._battle_mode.team_side(team_index) == side_index:
                    has_remaining = has_remaining_flags[team_index]
 
-            if !has_remaining:
+            if not has_remaining:
                return True
 
         return False
 
-    def _has_remaining(self, team)
+    def _has_remaining(self, team):
 
         if team != None:
             for active_mon in team:
@@ -89,7 +89,7 @@ class Battle(threading.Thread):
 
     def run(self):
 
-        while !self.is_side_empty():
+        while not self.is_side_empty():
 
             self._request_general_instructions()
             self._wait_for_general_instructions()
@@ -115,12 +115,12 @@ class Battle(threading.Thread):
 
         self.instruction_queue.clear_instructions()
         for slot in range(len(self._battle_instructions)):
-            if self._slots[slot] != None and !self._battle_mode.slot_benched(slot):
+            if self._slots[slot] != None and not self._battle_mode.slot_benched(slot):
                 #TODO:Add in restrictions
                 self.message_buffer.push(RequestMessage(slot))         
 
 
-    def _do_instruction(self, instruction)
+    def _do_instruction(self, instruction):
 
         if instruction.instruction_type == InstructionType.move:
                
@@ -137,18 +137,20 @@ class Battle(threading.Thread):
             
             target_slots = move.get_targets(instruction.target_slot, instruction.user_slot,
                                        ally_slots, enemy_slots)
-
-            if targets == None:
-                self.message_used_move(user_slot, move.move_definition)
-                self.message_move_failed(user_slot, move.move_definition)
-                return
-            elif move.pp == 0:
+            
+            if move.pp == 0:
                 #TODO: Implement Struggle
                 self.message_out_of_pp(user_slot, move.move_definition)
                 return
             
             #TODO: Hook for Pressure
             move.pp -= 1
+
+            if targets == None:
+                #TODO: Change targets for single targeting move
+                self.message_used_move(user_slot, move.move_definition)
+                self.message_move_failed(user_slot, move.move_definition)
+                return
             
             target_mons = [self._slots[slot] for slot in targets]
             self._do_move(move.move_definition, move.effect, user_slot, target_mons)
@@ -161,49 +163,142 @@ class Battle(threading.Thread):
         
         effect_params = MoveEffectParams(user, self._turn_count, target_mons)
 
+        if effect.check_fail_conditions(effect_params):
+            self.message_used_move(user_slot, move.move_definition)
+            self.message_move_failed(user_slot, move.move_definition)
+            return
+
         hit = [True for x in target_mons]
 
         #Roll for hit
-        accuracy = move.accuracy)
+        accuracy = move.accuracy
         if accuracy != None:
 
-            for(index in range(len(target_mons))):
+            for index in range(len(target_mons)):
                 effect_params.target = target_mons[index]
                 final_accuracy = (effect.get_custom_accuracy(effect_params, accuracy) *
                                      target_mons[index].get_evasion_modifier() *
                                      user.get_accuracy_modifier())
 
-                hit[index] = final_accuracy > random.random * 100
+                hit[index] = final_accuracy > random.randint(0, 99)
 
-        for(target_mon_index in range(len(target_mons))):
-            effect_params.target = target_mons[target_mon_index]
-            if(hit[target_mon_index])
+        for target_mon_index in range(len(target_mons)):
 
+            target = target_mons[target_mon_index]
+            target_slot = target_mon_slots[target_mon_index]
+            effect_params.target = target
+
+            if hit[target_mon_index]:
                 #Hit
-                if(target_mon_index == 0):
+                if target_mon_index == 0 :
                     self.message_used_move(user, move, animate = True,
-                                           target_slot = target_mon_slots[target_mon_index])
-                #TODO: Do damage calcs
-                #
+                                           target_slot = target_slot)
                 
-            else
+                self._handle_move_hit(move, effect, user, target, effect_params)                        
+                
+            else:
                 #Missed
-                if(target_mon_index == 0):
+                if target_mon_index == 0:
                     self.message_used_move(user, move, animate = len(target_mons) > 1,
-                                           target_slot = target_mon_slots[target_mon_index])
-                if(len(target_mons > 1):
-                    self.message_avoided(target_mons[target_mon_index])
+                                           target_slot = target_slot)
+                if len(target_mons > 1):
+                    self.message_avoided(target)
                 else:
                     self.message_missed(user)
+
+    def _handle_move_hit(self, move, effect, user, target, effect_params, hits_multiple,
+                         last_hit = True):
+
+        power = effect.get_custom_power(move.bp)
+
+        if not effect.hits_target(effect_params):
+            return
+        
+        if power != None:
+            default_attack_stat = move.move_category.get_attack_stat()
+                    
+            if default_attack_stat != None:
+                #TODO: Hook for Unaware
+                attack = user.get_modified_stat(default_attack_stat)
+                attack = effect.get_custom_attack(attack)
+
+                defense_stat = move.move_category.get_defense_stat()
+                defense_stat = effect.get_custom_def_stat(default_defense_stat)
+                #TODO: Hook for Wonder Room
+
+                defense = 0
+                crit = user.get_crit_rate(move.crit_modifier) > random.randint(0, 9999)
+                #TODO: Hook for Lucky Chant, Battle Armor
+                if crit:
+                    defense = target.get_unmodified_stat(defense_stat)
+                else:
+                    defense = target.get_modified_stat(defense_stat)
+
+                effectiveness = self.get_effectiveness(move, effect, target)
+
+                damage = ((2 * user.get_level() / 5) + 2) * attack * power / defense
+                damage = ((damage / 50) + 2) * random.randint(0, 100)
+                pre_type_damage = damage
+                damage *= self.get_stab(user, move) * effectiveness
+
+                #TODO: Apply other bonuses (e.g. weather, levitate)
+
+                new_damage = effect.get_custom_damage(effect_params, damage)
+
+                target.current_hp -= new_damage
+                if target.current_hp < 0:
+                    #TODO: Hook for Focus Sash/Band/Sturdy
+                    target.current_hp = 0
                 
+                if crit and new_damage == damage:
+                    self.message_crit()
+
+                if new_damage > 0:
+                    self.message_hp_change(target)
+
+                if pre_type_damage > 0:
+                    if hits_mulitple:
+                        self.message_effectiveness(effectiveness, target)
+                    else:
+                        self.message_effectiveness(effectiveness)
+
+                if target.current_hp == 0:
+                    self._faint(target)
+
+        if target.current_hp > 0:
+            effect.move_connected(effect_params)
+
+    def _faint(self, target):
+        #TODO
+        return
+        
 
     #---Message Convinience Methods---
+    def message_crit(self):
+        self.message(text = "Critical hit!")
+        
+    def message_hp_change(self, target):
+        #TODO
+        return
+
+    def message_effectiveness(self, effectiveness, target = None):
+        if effectiveness > 1:
+            self.message(text = "It's super effective!")
+        elif effectiveness == 0:
+            if target == None:
+                self.message(text = "It had no effect!")
+            else:
+                self.message(text = ("It had no effect on ", user.get_name(), "!"),
+                             localize_flags = (True, False))
+        elif effectiveness < 1: 
+            self.message(text = "It's not very effective...")
+        
     def message_out_of_pp(self, user_slot, move = None):
         user = self._slots[user]
         if move == None:
             self.message(text = (user.get_name(), " is out of PP!"),
                          localize_flags = (False,))
-        else
+        else:
             self.message(text = (user.get_name(), " tried to use ", move.name,
                                  " but is out of PP!"), localize_flags = (False,))
         
@@ -214,7 +309,6 @@ class Battle(threading.Thread):
     def message_missed(self, user):
         self.message(text = (user.get_name(), "'s attack missed!"),
                      localize_flags = (False,))
-
     
     def message_switch_in(self, slot, wild = False):
         status_message = StatusMessage(slot = slot, wild = wild,

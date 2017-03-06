@@ -3,18 +3,7 @@ from enum import Enum
 import math
 
 from move import MoveDefinition, PokemonMove
-
-
-class Stat(Enum):    
-
-
-    HP = 0
-    attack = 1
-    defense = 2
-    special_attack = 3
-    special_defense = 4
-    speed = 5
-    
+from stat import *
 
 class Nature(Enum):
 
@@ -47,24 +36,24 @@ class Nature(Enum):
 
     def get_increased_stat(self):
 
-        if self == Nature.lonely or self == Nature.brave or
-           self == Nature.adamant or self == Nature.naughty:
+        if (self == Nature.lonely or self == Nature.brave or
+           self == Nature.adamant or self == Nature.naughty):
             return Stat.attack
         
-        elif self == Nature.bold or self == Nature.relaxed or
-             self == Nature.impish or self == Nature.lax:
+        elif (self == Nature.bold or self == Nature.relaxed or
+             self == Nature.impish or self == Nature.lax):
             return Stat.defense
         
-        elif self == Nature.timid or self == Nature.hasty or
-             self == Nature.jolly or self == Nature.naive:
+        elif (self == Nature.timid or self == Nature.hasty or
+             self == Nature.jolly or self == Nature.naive):
             return Stat.speed
         
-        elif self == Nature.modest or self == Nature.mild or
-             self == Nature.quiet or self == Nature.rash:
+        elif (self == Nature.modest or self == Nature.mild or
+             self == Nature.quiet or self == Nature.rash):
             return Stat.special_attack
 
-        elif self == Nature.calm or self == Nature.gentle or
-             self == Nature.sassy or self == Nature.careful:
+        elif (self == Nature.calm or self == Nature.gentle or
+             self == Nature.sassy or self == Nature.careful):
             return Stat.special_defense
 
         #neutral natures
@@ -73,24 +62,24 @@ class Nature(Enum):
 
     def get_decreased_stat(self):
 
-        if self == Nature.bold or self == Nature.timid or
-           self == Nature.modest or self == Nature.calm:
+        if (self == Nature.bold or self == Nature.timid or
+           self == Nature.modest or self == Nature.calm):
             return Stat.attack
         
-        elif self == Nature.lonely or self == Nature.hasty or
-             self == Nature.mild or self == Nature.gentle:
+        elif (self == Nature.lonely or self == Nature.hasty or
+             self == Nature.mild or self == Nature.gentle):
             return Stat.defense
         
-        elif self == Nature.brave or self == Nature.relaxed or
-             self == Nature.quiet or self == Nature.sassy:
+        elif (self == Nature.brave or self == Nature.relaxed or
+             self == Nature.quiet or self == Nature.sassy):
             return Stat.speed
         
-        elif self == Nature.adamant or self == Nature.impish
-             or self == Nature.jolly or self == Nature.careful:
+        elif (self == Nature.adamant or self == Nature.impish
+             or self == Nature.jolly or self == Nature.careful):
             return Stat.special_attack
 
-        elif self == Nature.naughty or self == Nature.lax
-             or self == Nature.naive or self == Nature.rash:
+        elif (self == Nature.naughty or self == Nature.lax
+             or self == Nature.naive or self == Nature.rash):
             return Stat.special_defense
 
         #neutral natures
@@ -171,6 +160,7 @@ class ActiveMon(object):
 
             increased_stat = self._base_mon.nature.get_increased_stat()
             decreased_stat = self._base_mon.nature.get_decreased_stat().value
+            
             if increased_stat != None and stat_index == increased_stat.value:
                 stat = math.floor(stat * 1.1)
             elif decreased_stat != None and stat_index == decreased_stat.value:
@@ -178,16 +168,20 @@ class ActiveMon(object):
 
             stat_list.append(stat)
             
-        self.base_stats = tuple(stat_list)
+        self._base_stats = tuple(stat_list)
 
     def reset_stat_modifiers(self):
         
         #Crit Modifier, Atk, Def, Sp. A, Sp. D, Speed, Accuracy, Evasion
         self.stat_modifiers = [1, 0, 0, 0, 0, 0, 0, 0]
 
+    def get_unmodified_stat(self, stat):
+
+        return self._base_stats[stat.value]
+
     def get_modified_stat(self, stat):
 
-        stat = self.base_stats[stat.value]
+        stat = self.get_unmodified_stat(stat)
         stat_modifier = self.stat_modifiers[stat.value]
 
         if stat_modifier > 0:
@@ -206,7 +200,7 @@ class ActiveMon(object):
             return 1 + (stage / 3)
         elif stage < 0:
             return 1 / (1 + (stage / -3))
-        else
+        else:
             return 1
 
     def get_evasion_modifier(self):
@@ -216,13 +210,14 @@ class ActiveMon(object):
             return 1 / (1 + (stage / 3))
         elif stage < 0:
             return 1 + (stage / -3)
-        else
+        else:
             return 1
 
     #gives crit rate out of 10,000
-    def get_crit_rate(self):
+    def get_crit_rate(self, modifier):
 
-        stage = self.stat_modifiers[0]
+        #TODO: Super luck hook in here?
+        stage = self.stat_modifiers[0] + modifier
         if stage == 1:
             return 625
         elif stage == 2:

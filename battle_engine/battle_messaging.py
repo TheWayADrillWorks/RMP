@@ -20,15 +20,16 @@ class LocalizableText(object):
     #TODO:pass in translation module
     def get_text(self):
         if isinstance(self._text, str):
-            if self._localize_flags != None and !self._localize_flags:
+            if self._localize_flags != None and not self._localize_flags:
                 return self._text
             else:
+                #TODO:Translate dis
                 return self._text
         else:
             final_string = ""
             for index in range(len(text)):
-                if self._localize_flags != None and index < len(self._localize_flags) and
-                   !self._localize_flags[index]:
+                if (self._localize_flags != None and index < len(self._localize_flags) and
+                   not self._localize_flags[index]):
                     final_string += self._text[index]
                 else:
                     #TODO:Translate dis
@@ -40,7 +41,7 @@ class LocalizableText(object):
 class Message(object):
 
 
-    def __init__(self, animation = None, text = None, user = None, target = None)
+    def __init__(self, animation = None, text = None, user = None, target = None):
 
         self.animation = animation
         self.text = text
@@ -62,7 +63,7 @@ class StatusMessage(object):
 
 class RequestMessage(object):
 
-    def __init__(self, slot, restrictions = None)
+    def __init__(self, slot, restrictions = None):
 
         self.restrictions = restrictions
         self.slot = slot
@@ -110,7 +111,7 @@ class MessageBuffer(object):
         self._buffer.append(message)
         self._release_write_lock()
         
-    def _clear_old(self)
+    def _clear_old(self):
     
         self._obtain_write_lock()
 
@@ -120,7 +121,7 @@ class MessageBuffer(object):
                 lowest_position = listener_position
 
         if lowest_position > 0:
-            for index in range(len(self._listener_positions):
+            for index in range(len(self._listener_positions)):
                 self._listener_positions[index] -= lowest_position
 
         for index in range(lowest_position):
@@ -128,25 +129,25 @@ class MessageBuffer(object):
         
         self._release_write_lock()
 
-    def _obtain_write_lock(self)
+    def _obtain_write_lock(self):
 
         while self.lock != 0:
             time.sleep(0.125)
 
         self._lock = -1
         
-    def _release_write_lock(self)
+    def _release_write_lock(self):
     
         self._lock = 0
 
-    def _obtain_read_lock(self)
+    def _obtain_read_lock(self):
 
         while self.lock < 0:
             time.sleep(0.125)
 
         self._lock += 1
 
-    def _release_read_lock(self)
+    def _release_read_lock(self):
 
         self._lock -= 1
 
@@ -208,8 +209,8 @@ class InstructionQueue(object):
                
             keep_waiting = False
             slot = 0
-            while slot < len(self._battle_instructions) and !keep_waiting:
-               if slots[slot] != None and !self._battle_mode.slot_benched(slot):
+            while slot < len(self._battle_instructions) and not keep_waiting:
+               if slots[slot] != None and not self._battle_mode.slot_benched(slot):
                     keep_waiting = self._battle_instructions[slot] == None
                slot += 1
 
